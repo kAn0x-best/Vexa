@@ -7,22 +7,18 @@ from datetime import datetime
 import os
 import sqlite3
 
-# Uygulama yapılandırması
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_' + ''.join(
-    random.choices(string.ascii_letters + string.digits, k=16)))
-app.config['DATABASE'] = 'vexa.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'dev_key_' + ''.join(
+    random.choices(string.ascii_letters + string.digits, k=16))
+app.config['DATABASE'] = os.environ.get('DATABASE') or 'vexa.db'
+
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
-
-# Veritabanı bağlantısı
 def get_db():
     db = sqlite3.connect(app.config['DATABASE'])
     db.row_factory = sqlite3.Row
     return db
 
-
-# Veritabanı tablolarını oluştur
 def init_db():
     with app.app_context():
         db = get_db()
@@ -69,16 +65,11 @@ def init_db():
             )''')
         db.commit()
 
-
 init_db()
 
-
-# Yardımcı fonksiyonlar
 def generate_id(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
-
-# Zaman formatlama filtresi
 @app.template_filter('format_time')
 def format_time_filter(timestamp):
     if isinstance(timestamp, str):
@@ -91,8 +82,6 @@ def format_time_filter(timestamp):
         return timestamp.strftime('%H:%M')
     return str(timestamp)
 
-
-# Kimlik doğrulama rotaları
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -117,7 +106,6 @@ def register():
 
     return render_template('auth/register.html')
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -138,14 +126,11 @@ def login():
 
     return render_template('auth/login.html')
 
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
-# Ana uygulama rotaları
 @app.route('/')
 def home():
     if 'user_id' not in session:
@@ -162,7 +147,6 @@ def home():
     finally:
         db.close()
 
-
 @app.route('/create_server', methods=['POST'])
 def create_server():
     if 'user_id' not in session:
@@ -177,12 +161,10 @@ def create_server():
                 'INSERT INTO servers (id, name, owner_id) VALUES (?, ?, ?)',
                 (server_id, server_name, session['user_id'])
             )
-            # Sunucu sahibini otomatik olarak üye yap
             db.execute(
                 'INSERT INTO server_members (user_id, server_id, rank) VALUES (?, ?, ?)',
                 (session['user_id'], server_id, 'owner')
             )
-            # Varsayılan kanalları oluştur
             db.execute(
                 'INSERT INTO channels (id, name, type, server_id) VALUES (?, ?, ?, ?)',
                 ('genel', 'genel', 'text', server_id)
@@ -196,7 +178,6 @@ def create_server():
             db.close()
 
     return redirect(url_for('home'))
-
 
 @app.route('/server/<server_id>')
 def server(server_id):
@@ -215,7 +196,6 @@ def server(server_id):
         if not server:
             return redirect(url_for('home'))
 
-        # Üye listesini ve rankları getir
         members = db.execute('''
             SELECT u.id as user_id, u.username, sm.rank 
             FROM server_members sm
@@ -226,7 +206,6 @@ def server(server_id):
             FROM users WHERE id = ?
         ''', (server_id, server['owner_id'])).fetchall()
 
-        # Kanal oluşturma yetkisi kontrolü
         is_owner_or_admin = False
         if session['user_id'] == server['owner_id']:
             is_owner_or_admin = True
@@ -250,7 +229,6 @@ def server(server_id):
     finally:
         db.close()
 
-
 @app.route('/server/<server_id>/create_channel', methods=['POST'])
 def create_channel(server_id):
     if 'user_id' not in session:
@@ -258,7 +236,6 @@ def create_channel(server_id):
 
     db = get_db()
     try:
-        # Sunucu sahibini kontrol et
         server = db.execute(
             'SELECT owner_id FROM servers WHERE id = ?',
             (server_id,)
@@ -268,7 +245,6 @@ def create_channel(server_id):
             flash('Sunucu bulunamadı')
             return redirect(url_for('home'))
 
-        # Sadece sunucu sahibi veya admin kanal oluşturabilir
         if session['user_id'] != server['owner_id']:
             member = db.execute(
                 'SELECT rank FROM server_members WHERE user_id = ? AND server_id = ?',
@@ -298,7 +274,6 @@ def create_channel(server_id):
 
     return redirect(url_for('server', server_id=server_id))
 
-
 @app.route('/server/<server_id>/set_rank', methods=['POST'])
 def set_rank(server_id):
     if 'user_id' not in session:
@@ -313,7 +288,6 @@ def set_rank(server_id):
 
     db = get_db()
     try:
-        # Sadece sunucu sahibi rank atayabilir
         server = db.execute(
             'SELECT owner_id FROM servers WHERE id = ?',
             (server_id,)
@@ -323,7 +297,6 @@ def set_rank(server_id):
             flash('Bu işlem için yetkiniz yok')
             return redirect(url_for('server', server_id=server_id))
 
-        # Rank güncelleme
         db.execute(
             '''INSERT OR REPLACE INTO server_members 
                (user_id, server_id, rank) VALUES (?, ?, ?)''',
@@ -339,7 +312,6 @@ def set_rank(server_id):
 
     return redirect(url_for('server', server_id=server_id))
 
-
 @app.route('/server/<server_id>/add_member', methods=['POST'])
 def add_member(server_id):
     if 'user_id' not in session:
@@ -352,7 +324,6 @@ def add_member(server_id):
 
     db = get_db()
     try:
-        # Sunucu sahibi mi kontrol et
         server = db.execute(
             'SELECT owner_id FROM servers WHERE id = ?',
             (server_id,)
@@ -362,7 +333,6 @@ def add_member(server_id):
             flash('Bu işlem için yetkiniz yok')
             return redirect(url_for('server', server_id=server_id))
 
-        # Kullanıcıyı bul
         user = db.execute(
             'SELECT id FROM users WHERE username = ?',
             (username,)
@@ -372,7 +342,6 @@ def add_member(server_id):
             flash('Kullanıcı bulunamadı')
             return redirect(url_for('server', server_id=server_id))
 
-        # Sunucuya ekle (varsayılan rank: member)
         db.execute(
             'INSERT OR IGNORE INTO server_members (user_id, server_id, rank) VALUES (?, ?, ?)',
             (user['id'], server_id, 'member')
@@ -386,7 +355,6 @@ def add_member(server_id):
         db.close()
 
     return redirect(url_for('server', server_id=server_id))
-
 
 @app.route('/server/<server_id>/channel/<channel_id>')
 def channel(server_id, channel_id):
@@ -402,7 +370,6 @@ def channel(server_id, channel_id):
         if not server:
             return redirect(url_for('home'))
 
-        # Kullanıcının sunucu üyesi olup olmadığını kontrol et
         is_member = False
         if session['user_id'] == server['owner_id']:
             is_member = True
@@ -448,8 +415,6 @@ def channel(server_id, channel_id):
     finally:
         db.close()
 
-
-# SocketIO olayları
 @socketio.on('join')
 def handle_join(data):
     if 'user_id' not in session:
@@ -465,7 +430,6 @@ def handle_join(data):
             'text': f"{session['username']} sohbete katıldı",
             'timestamp': datetime.now().strftime('%H:%M')
         }, room=room)
-
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -495,7 +459,6 @@ def handle_message(data):
         finally:
             db.close()
 
-
 @socketio.on('disconnect')
 def handle_disconnect():
     if 'user_id' in session:
@@ -503,7 +466,6 @@ def handle_disconnect():
             'text': f"{session['username']} sohbetten ayrıldı",
             'timestamp': datetime.now().strftime('%H:%M')
         })
-
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
