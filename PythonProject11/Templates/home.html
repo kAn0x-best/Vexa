@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vexa - Ana Sayfa</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <h1>Vexa</h1>
+            <div class="user-info">
+                {{ session['username'] }}
+                <a href="{{ url_for('logout') }}">Çıkış Yap</a>
+            </div>
+
+            <div class="server-list">
+                <h3>Sunucular</h3>
+                <ul>
+                    {% for server in servers %}
+                    <li>
+                        <a href="{{ url_for('server', server_id=server['id']) }}">
+                            {{ server['name'] }}
+                        </a>
+                        <span class="server-owner">{{ server['owner'] }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <form method="POST" action="{{ url_for('create_server') }}">
+                    <input type="text" name="server_name" placeholder="Sunucu Adı" required>
+                    <button type="submit">Sunucu Oluştur</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="welcome-message">
+                <h2>Bir sunucu seçin</h2>
+                <p>Discord benzeri sohbet deneyimi için sunuculara göz atın</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

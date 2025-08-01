@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vexa - {{ server['name'] }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <h1>Vexa</h1>
+            <div class="user-info">
+                {{ session['username'] }}
+                <a href="{{ url_for('logout') }}">Çıkış Yap</a>
+            </div>
+
+            <div class="server-info">
+                <h2>{{ server['name'] }}</h2>
+                <p>Sunucu Sahibi: {{ server['owner'] }}</p>
+            </div>
+
+            <div class="channel-list">
+                <h3>Kanallar</h3>
+                <ul>
+                    {% for channel in channels %}
+                    <li class="{% if channel['type'] == 'voice' %}voice-channel{% else %}text-channel{% endif %}">
+                        <a href="{{ url_for('channel', server_id=server['id'], channel_id=channel['id']) }}">
+                            {% if channel['type'] == 'voice' %}🔊{% else %}#{% endif %}
+                            {{ channel['name'] }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <!-- Sadece yetkililere gösterilecek kanal oluşturma formu -->
+                {% if is_owner_or_admin %}
+                <form method="POST" action="{{ url_for('create_channel', server_id=server['id']) }}">
+                    <input type="text" name="channel_name" placeholder="Kanal Adı" required>
+                    <select name="channel_type">
+                        <option value="text">Metin Kanalı</option>
+                        <option value="voice">Ses Kanalı</option>
+                    </select>
+                    <button type="submit">Kanal Oluştur</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <div class="member-list">
+                <h3>Üyeler</h3>
+                <ul>
+                    {% for member in members %}
+                    <li>
+                        <span class="username">{{ member.username }}</span>
+                        <span class="rank-badge">{{ member.rank }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <!-- Sunucu sahibine özel yönetim paneli -->
+                {% if server.owner_id == session['user_id'] %}
+                <div class="admin-panel">
+                    <h4>Yönetim Paneli</h4>
+                    <form method="POST" action="{{ url_for('add_member', server_id=server['id']) }}">
+                        <input type="text" name="username" placeholder="Kullanıcı adı" required>
+                        <button type="submit">Üye Ekle</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('set_rank', server_id=server['id']) }}">
+                        <select name="user_id">
+                            {% for member in members %}
+                            {% if member.user_id != server.owner_id %}
+                            <option value="{{ member.user_id }}">{{ member.username }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <select name="rank">
+                            <option value="admin">Admin</option>
+                            <option value="mod">Moderatör</option>
+                            <option value="member">Üye</option>
+                        </select>
+                        <button type="submit">Rank Ata</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="welcome-message">
+                <h2>Bir kanal seçin</h2>
+                <p>{{ server['name'] }} sunucusundaki kanallardan birini seçin</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
